@@ -1,0 +1,68 @@
+metric: NPV
+time_horizon_ENP: 5.0
+retirement_time: 0.0
+discount_rate: 0.045
+minimum_increment: 200
+time_horizon_investor: 1
+minimum_revenue_margin: -5000
+quantile_cvar: 0.95
+
+power_increment:
+  fr: 1000
+  de: 1000
+  es: 1000
+  be: 1000
+  at: 1000
+  pl: 1000
+  itn: 1000
+  ukgb: 1000
+  pt: 1000
+  nl: 1000
+  ukni: 1000
+
+limit_investment: 
+  fr: 100000
+  de: 100000
+  es: 100000
+  be: 100000
+  at: 100000
+  pl: 100000
+  itn: 100000
+  ukgb: 10000
+  pt: 100000
+  nl: 100000
+  ukni: 100000
+
+limit_retired: 
+  fr: 100000
+  de: 100000
+  es: 100000
+  be: 100000
+  at: 100000
+  pl: 100000
+  itn: 100000
+  ukgb: 10000
+  pt: 100000
+  nl: 100000
+  ukni: 100000 
+
+service_system_total:
+  fr: 0 
+  de: 0
+  es: 0
+  be: 0
+  at: 0
+  pl: 0
+  itn: 0
+  ukgb: 0
+  pt: 0
+  ukni: 0
+  nl: 0
+service_system_share: 
+  gas: 0.2
+  oil: 0.2
+  coal: 0.1
+  nuclear: 0.1
+  dsr: 0.1 
+  batteries: 0.3
+ 

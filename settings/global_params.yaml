@@ -1,0 +1,51 @@
+name: test
+use_api: yes
+host : "https://antares-web.rte-france.com/api"
+antares_sub_dir: BP_23
+allow_invest: yes
+interpolate_revenues: no
+parallel_loading: no
+adaptative_power_increment: yes
+CRM_forced: no
+delay_investment_decision: no
+
+# Option to save antares runs
+antares_run_save: 
+  enabled: no
+  pattern: lock
+
+# Static mode 
+static_mode : 
+  enabled: no
+  cluster_to_consider: 
+  - nuclear
+    
+# Global CRM parameters
+capacity_mechanism: 
+  enabled: no
+  price_cap_by_technology: yes
+
+reliability_options : 
+  enabled : no
+  dynamic_strike_price:
+    enabled: no
+    surplus: 100 
+  by_capacity: no
+
+# Price cap global parameters
+moving_price_cap : 
+  enabled: no
+  cap_threshold_share: 0.6
+  cap_raising: 1000
+  duration_threshold: 1
+  price_cap_energy: 3000.0
+
+# Areas to take into account in the model
+areas:
+- fr
+
+# Dataset to take into account in the model
+antares_to_simulate:
+- 2031
+- 2041
+antares_futures_study:

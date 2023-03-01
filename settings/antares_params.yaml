@@ -1,0 +1,56 @@
+# Parameters relative to Antares run and simulation
+iteration_max: 3
+solver_path: D:/AppliRTE/Antares8.2.3/bin/antares-8.2-solver.exe
+antares_mode: economy
+sub_mode: fast
+nb_cores: 3.0
+nb_cpu: 20
+antares_hours: 8736.0
+batteries_country: z_batteries
+
+# Monte carlo list of selected years
+mc_list :
+mc_number: 10
+
+# Areas in Antares Simulation
+all_areas:
+- at
+- be
+- ch
+- cz
+- de
+- dke
+- dkw
+- es
+- fr
+- ie
+- itcn
+- itcs
+- itn
+- its
+- itsar
+- itsic
+- pl
+- pt
+- se3
+- se4
+- ukgb
+- ukni
+- nl
+
+# API ID of the dataset of the antares simulation
+api_study_list:
+  BP_21:
+    '2022': 899ea7ac-ba52-4009-b37e-cdd9150a95f9
+    '2023': 711b1a06-a87d-422b-a6b4-a1227069084f
+    '2024': 6f89d89b-f066-429a-b49d-cc83839759f2
+    '2025': b5eff8a9-26ba-45d9-95ca-d11d6692b025
+    '2026': 140a41c3-41ce-4a10-ad1e-22021764f6bd
+    '2031': 618c5121-e132-49e2-b9fa-30d4bf31f6f5
+  BP_23:
+    '2031': ed5427e0-2d7e-460b-a45b-e4359bd0b75b
+    '2041': 4565e40d-c8b3-4fcf-a28e-2bd0c3cd1d85
+    
+dont_delete_antares_web:
+  - 36bd3a4e-0a55-4fc1-8a48-37b6a33116f9 # 2031_clustering
+  - f719d549-2a9a-4bb4-b72c-327649d2a566 # 2041_clustering

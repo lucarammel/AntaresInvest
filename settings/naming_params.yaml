@@ -1,0 +1,27 @@
+naming_params:
+  nuclear: nuclear
+  gas:
+  - ccgt
+  - ocgt
+  - gas
+  dsr: dsr
+  coal:
+  - lignite
+  - coal
+  oil: oil
+  batteries: batteries
+  waste: waste
+  ve: ve
+  solar: solar
+  wind: wind
+peculiarities:
+- chp
+- epr
+pattern_to_avoid:
+- mr
+- bio
+- peak
+renewables_type:
+- solar
+- wind
+- hydro

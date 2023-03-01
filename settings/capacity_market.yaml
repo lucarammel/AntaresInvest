@@ -1,0 +1,64 @@
+LOLE_margin: 0.5
+
+# Demand type for capacity market simulation
+demand:
+  type: slope_break
+  slope_break:
+    price:
+    - 60000
+    - 60000
+    - 40000
+    - 0
+    capacity:
+    - 0
+    - 70000
+    - 20000
+    - 10000
+
+# Parameters for every country-explicit CRM 
+CRM:
+  fr: 
+    price_cap_crm:
+      all: 60000 
+      gas: 60000
+      nuclear: 60000
+      coal: 60000
+      oil: 60000
+      oil_chp: 60000
+      gas_chp: 60000
+    coeff_securite: 0.98
+    nbr_PP1: 10.0
+
+# Loss of load expectation by country
+reliability_standard:
+  fr: 3
+  de: 5
+  be: 3
+  es: 3
+  ukgb: 3
+  pt: 5
+  pl: 3
+  itn: 3
+  at: 3	
+  ukni: 3
+  nl: 3
+
+
+LOLE_margin_equation:
+  fr:
+    a: -3000
+    b: 3275.5
+
+# Reliability options parameters
+RO_strike_price_country:
+  fr: 500
+  be: 100
+  es: 100
+  de: 100
+RO_strike_price_technology:
+  gas: 100
+  gas_chp: 100
+  nuclear: 100
+  coal: 100
+  oil: 100
+  oil_chp: 100
