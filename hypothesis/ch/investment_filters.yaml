@@ -1,0 +1,21 @@
+clusters_supported:
+- nuclear
+- waste
+- gas_chp
+- oil_chp
+- wind
+- solar
+- dsr
+- ve
+clusters_not_supported:
+- gas
+- coal
+- oil
+candidates_investment:
+- gas
+candidates_retirement: 
+- gas 
+- coal
+- oil
+specific_clusters_to_avoid : 
+ 
