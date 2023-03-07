@@ -1,7 +1,7 @@
 # AntaresInvest <img src="docs/picture/antareslogo.png" alt="antareslogo" width="40" height="40">
 
-**AntaresInvest** is an extension of **Antares Simulator** optimization solution provided by *Rte* to model the european power system. Antares is a unit commitment tool and makes the dispatch over the EU power system  whereas AntaresInvest works as the multi-year investment simulation model. AntaresInvest computes revenues of the **energy-only** market based on Antares Simulation. Then, other market architectures are implemented such as **capacity remuneration mechanism** or **service system** for example. Investors make decisions to retire or invest based on economic assumptions and revenues computation. Powerfleet is updated based on these decisions and time moves on. Iterations over the same year are made. Powerfleet is adapted following rules implemented.
-
+**AntaresInvest** is an extension of [**Antares Simulator**](https://antares-simulator.org
+) optimization solution provided by [*Rte*](https://www.rte-france.com/) to model the european power system. Antares is a unit commitment tool and makes the dispatch over the EU power system  whereas AntaresInvest works as the multi-year investment simulation model. AntaresInvest computes revenues of the **energy-only** market based on Antares Simulation. Then, other market architectures are implemented such as **capacity remuneration mechanism** or **service system** for example. Investors make decisions to retire or invest based on economic assumptions and revenues computation. Powerfleet is updated based on these decisions and time moves on. Iterations over the same year are made. Powerfleet is adapted following rules implemented.
 
 # Table of contents
 
@@ -13,7 +13,8 @@
 8. [Data format description](docs/data_format.md)
 9. [Make outputs of the model](#make-outputs-of-the-model)
 10. [Interact with AntaresWeb through API](#interact-with-antaresweb-through-api)
-11. [Maintenance](CONTRIBUTING.md)
+11. [Modelling elements](docs/modelisation.md)
+12. [Authors and contributions](CONTRIBUTING.md)
 
 ## Architecture of the model
 
@@ -112,6 +113,10 @@ Find here a full [**description**](docs/data_format.md).
 ## Interact with AntaresWeb through API
 
 [**Here**](docs/api.md) find examples to get to know how to handle API of [**AntaresWeb**](https://antares-web.rte-france.com/) with **R**.
+
+## Modelling elements
+
+[**Here**](docs/modelisation.md) find modelling choices.
 
 ## Contributions & contributors
 

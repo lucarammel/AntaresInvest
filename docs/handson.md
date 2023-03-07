@@ -45,7 +45,7 @@ To get into the model, open the *main.R* script into RStudio. `settings/` folder
 
 Before running anything in **local** : **MAKE SURE YOU SAVE PROPERLY THE ANTARES DATASET** because the algorithm changes the dataset at the roots. To make a proper save please follow the guidelines :
 
-* Run the code below. Make sure you run this here : `/antaresinvest`
+* Run the code below. Make sure you run this here : `/antaresinvest`. Then, if you want to use api, upload the archive `zip` of the simulation on AntaresWeb. [Generate](api/#get-your-token) your token.
 
 ```R
 library(magrittr) # Load magrittr to import the pipe operator: %>% 

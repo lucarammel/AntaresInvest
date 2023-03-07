@@ -1,0 +1,47 @@
+Package: antaresinvest
+Title: investment model based on energy only and capacity markets revenues
+Version: 0.1
+Authors@R: 
+    c(person(given = "Lucas" ,
+           family = "Pereira" ,
+           email = "lucas.pereira@rte-france.com",
+           role = c('aut', 'cre')),
+      person(given = "Elouan",
+              family = "Raymond",
+              email = "elouan.raymond@rte-france.com",
+              role = c('aut')),
+      person(given = "Nicolas",
+              family = "Grandhaye",
+              email = "nicolas.grandhaye@rte-france.com",
+              role = c('aut'))
+              )
+Description: Compute and assess energy only revenues (ie power wholesale market) in addition with capacity market (French design) to make investments decision on power plants candidates. Use Rte Antares simulator software as optimizer for the wholesale market european market. 
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.1
+Imports: 
+    antaresEditObject,
+    antaresProcessing,
+    antaresRead,
+    data.table,
+    doParallel,
+    dplyr,
+    foreach,
+    glue,
+    parallel,
+    plyr,
+    rstudioapi,
+    stringr,
+    tictoc,
+    reshape2,
+    yaml,
+    httr,
+    ggplot2,
+    xlsx,
+    purrr,
+    readxl
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

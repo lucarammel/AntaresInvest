@@ -1,0 +1,24 @@
+clusters_supported:
+- nuclear
+- waste
+- gas_chp
+- oil_chp
+- dsr
+- ve
+clusters_not_supported:
+- gas
+- coal
+- oil
+- wind 
+- solar
+candidates_investment:
+- fr_ocgt new
+- wind 
+- solar 
+candidates_retirement: 
+- gas 
+- coal
+- oil
+specific_clusters_to_avoid : 
+- fr_dsr_tariff
+- fr_ccgt new dk6

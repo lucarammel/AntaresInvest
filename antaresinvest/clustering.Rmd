@@ -1,0 +1,527 @@
+---
+title: "Clustering"
+author: "Lucas PEREIRA"
+date: "01/03/2023"
+output: html_document
+---
+
+## Load packages & AntaresInvest
+
+
+```{r, echo=FALSE, warning=FALSE}
+rm(list = ls())
+
+library(tidyr)
+library(magrittr)
+library(dplyr)
+library(lubridate)
+library(tidyverse)
+library(data.table)
+
+project_dir = rstudioapi::getActiveDocumentContext()$path %>% strsplit(., split = "/", fixed = T)  %>% .[[1]] %>% .[-c(length(.),length(.)-1)] %>%
+  paste(.,collapse="/")
+
+antaresinvest_directory = paste(project_dir, 'antaresinvest', sep = '/')
+devtools::load_all(antaresinvest_directory)
+
+```
+
+## Set up initial parameters
+
+Choose the right parameters, study ids & outputs of the AntaresWeb simulation.
+
+```{r, echo=FALSE}
+
+build_parameters_input(update_yaml = TRUE)
+initial_mc_list = mc_list ### The initial monte carlo years that were selected by DSVD
+
+years_to_simulate = antares_study_list %>% as.integer(.)
+years = years_to_simulate %>% as.character(.)
+s = 1
+mc_list = 1:999 ### all monte carlos years
+mc_number = length(mc_list)
+area = 'fr'
+
+study_list = list('2031' = list(reference_id = 'ed5427e0-2d7e-460b-a45b-e4359bd0b75b',
+                                variant_id = '36bd3a4e-0a55-4fc1-8a48-37b6a33116f9'),
+                  '2041' = list(reference_id = '4565e40d-c8b3-4fcf-a28e-2bd0c3cd1d85',
+                                variant_id = 'f719d549-2a9a-4bb4-b72c-327649d2a566'))
+
+outputs = list('2031' = '20230227-1001eco-1-2031',
+               '2041' = '20230227-1002eco-1-2031')
+
+# Loading .Rdata
+path_to_rdata = 'clustering.Rdata'
+load(path_to_rdata)               
+
+```
+## Read raw data from Antares
+
+
+```{r, echo=FALSE}
+ 
+if (!exists(path_to_rdata)){
+  ### Build the dataframe containing initial powerplants fleet from antares study
+  power_plants = lapply(antares_study_list, function(simulation_name) lapply(areas,function(area) make_powerplants_from_antares(study_id = study_list[[simulation_name]]$variant_id,
+                                                                                                                                zone = area,                                                                                                        year_simulated = simulation_name))) %>% rename_dataset(., years_to_simulate =        years, areas = areas)
+
+  ### Raw data from antares
+  dataset = build_dataset_wrapper(power_plants = power_plants,
+                                  study_list = study_list,
+                                  years_to_simulate = years,
+                                  outputs = outputs)
+
+  ### Revenues computation
+  dataset_revenues = lapply(years, function(year_simulated) lapply(areas, function (area) analysis_revenues_total(year_simulated = year_simulated,                                                                                    area = area,                                                                                                        power_plants =  power_plants[[year_simulated]][[area]],                                                             clusters_not_supported = dataset[[year_simulated]][[area]]$clusters_filters$not_supported,                          data_antares = dataset[[year_simulated]][[area]]$data_antares))) %>% rename_dataset(., years_to_simulate = years,areas = areas)
+}
+```
+
+
+## Load 
+
+Get the hourly load for each monte carlo year 
+
+```{r, echo = FALSE}
+load = lapply(years,
+              function(x) dataset[[x]][[area]]$data_antares$areas %>% select(c("mcYear","timeId","LOAD")) %>% 
+                pivot_wider(names_from = mcYear,values_from = LOAD)) %>% setNames(.,years)
+
+```
+
+## Shortage hour and energy
+
+Process shortages and energy revenues and get them for each montecarlo year and other statistics
+
+```{r, echo = FALSE}
+energy_revenues_cluster = lapply(years,
+                                 function(year) dataset_revenues[[year]][[area]]$revenues %>% names(.) %>% 
+                                   sapply(.,function(c) return(dataset_revenues[[year]][[area]]$revenues[[c]]$energy_revenues_annual_MW))) %>% setNames(.,years)
+
+energy_revenue_median = energy_revenues_cluster %>% lapply(.,apply,1,median)
+energy_revenue_mean  = energy_revenues_cluster %>% lapply(.,rowMeans)
+energy_revenue_std = energy_revenues_cluster %>% lapply(.,apply,1,sd) 
+
+### Extract unsupplied energy ###
+df_shortage = lapply(years,
+                     function (year) dataset[[year]][[area]]$data_antares$areas  %>% 
+                       dcast(., timeId~mcYear, value.var = "UNSP. ENRG") %>% 
+                       select(-c(timeId)) %>% as.matrix(.)) %>% setNames(.,years)
+
+df_shortage_hour = df_shortage %>% lapply(.,function(x) (x>0) %>% colSums(.) %>% as.vector(.))
+df_shortage_energy = df_shortage %>% lapply(.,function(x) x %>% colSums(.) %>% as.vector(.))
+```
+
+
+## Spot prices 
+
+Get hourly spot prices for each montecarlo year then, get statistic by MC year
+
+```{r, echo=FALSE}
+df_spot_prices =  lapply(names(dataset),
+                         function(year) dataset[[year]][[area]]$data_antares$areas %>% 
+                           dcast(., timeId~mcYear, value.var = "MRG. PRICE") %>%
+                           select(-c(timeId)) %>% mutate_all(function(x) ifelse(x<0,0,x))) %>% setNames(.,years)
+
+spot_mean  = df_spot_prices %>% lapply(., function(x) x %>% colMeans(.) %>% as.vector(.))
+spot_median = df_spot_prices %>% lapply(., function(x) x %>% apply(.,2,median) %>% as.vector(.))
+spot_std = df_spot_prices %>% lapply(.,apply,2,sd)
+```
+
+## Dataframe of outputs
+
+Build the dataframe which gives a resume of the interesting metrics extracted 
+
+```{r, echo=FALSE}
+
+df_outputs = lapply(years,
+                    function(year) data.table(mcYear = mc_list,
+                                              shortage_hour = df_shortage_hour[[year]],
+                                              shortage_energy = df_shortage_energy[[year]],
+                                              spot_mean = spot_mean[[year]],
+                                              spot_median = spot_median[[year]],
+                                              spot_std = spot_std[[year]],
+                                              revenue_mean = energy_revenue_median[[year]],
+                                              revenue_median = energy_revenue_mean[[year]],
+                                              energy_revenue_std = energy_revenue_std[[year]])) %>%
+  setNames(.,years) %>% purrr::list_modify(., all_years = bind_rows(.,.id="year"))
+
+# Print the output dataframe
+df_outputs$all_years %>% head(10)
+```
+
+##
+
+```{r, echo = FALSE, warning = FALSE}
+
+data = lapply(years,
+              function(year) data.table(shortage_hour = df_shortage_hour[[year]],
+                                        shortage_energy = df_shortage_energy[[year]],
+                                        spot_mean = spot_mean[[year]],
+                                        revenue_mean = energy_revenue_median[[year]])) %>%
+  setNames(.,years)
+
+df_selection = do.call(cbind, data) %>% mutate(mcYear = mc_list)
+df_selection %<>% setNames(.,sapply(colnames(.), gsub , pattern = '.', replacement = '_', fixed = TRUE) %>% as.vector(.))
+```
+
+## Clustering method
+
+First, let's perform a hierarchical clustering
+
+```{r, echo = FALSE,message= FALSE,results='hide',fig.keep='all'}
+
+### Load utils ####
+clust.medoid <- function(i, 
+                         distmat, 
+                         clusters) {
+  ind = (clusters == i)
+  if(sum(ind)>1){ # If individual is not alone in its cluster
+    names(which.min(rowSums(distmat[ind, ind])))
+  } else{
+    return(which(clusters==i))
+  }
+}
+
+#' Compute statistics regarding the clustering 
+stat.comp <- function(x,y){ 
+  K <- length(unique(y)) # Number of clusters
+  n <- length(x) # Number of observations
+  m <- mean(x) # Global average
+  TSS <- sum((x-m)^2) # Total variance 
+  nk <- table(y) # Conditional groups 
+  mk <- tapply(x,y,mean) # moyennes conditionnelles    
+  BSS <- sum(nk * (mk - m)^2) # Explained variance    
+  result <- c(mk,100.0*BSS/TSS) # averages & proportion of explained variance
+  names(result) <- c(paste("G",1:K),"% epl.")    # Rename vector's elements
+  return(result) }
+
+
+make_clustering <- function(df,
+                            use_median = FALSE, 
+                            use_quantile = FALSE, 
+                            use_sd = FALSE){
+  cols = c("shortage_hour","shortage_energy")
+  ifelse(use_median, cols %<>% c(.,"spot_median","revenue_median"), cols %<>% c(.,"spot_mean","revenue_mean"))
+  
+  if(use_sd) cols %<>% c(.,'spot_std','energy_revenue_std')
+  df1 = df %>% select(all_of(cols))
+  
+  # center & scale data to avoid high variance variable to impact the result 
+  df.cr <- scale(df1 ,center=T,scale=T)
+  # distance matrix between individuals
+  d.df <- dist(df.cr)
+  # CAH - ward criteria #method =  ward.D2 correspond au vrai critere de Ward #utilisant le carre de la distance 
+  cah.ward <- hclust(d.df,method="ward.D2")
+  
+  # plot(cah.ward) # display dendogram
+  # rect.hclust(cah.ward,k=10) # display the clusters on dendogram  
+  groupes.cah <- cutree(cah.ward,k=10) # split in 10 clusters to get 10 representative monte carlo years
+  mat.dist = as.matrix(d.df) # get a full matrix
+  
+  stat = sapply(df1,stat.comp,y=groupes.cah) %>% data.frame(.) %>% mutate(group = row.names(.))
+  row.names(stat) = NULL
+  medoids = sapply(unique(groupes.cah), clust.medoid, mat.dist, groupes.cah) %>% as.vector(.) %>% as.integer(.)
+  medoids_weights = groupes.cah %>% table(.) %>% as.vector() %>% divide_by(.,sum(.))
+  df_cluster = df.cr %>% data.frame(.) %>% mutate(cluster = groupes.cah %>% as.factor(.), mcYear = df$mcYear)
+  
+  out = list(groupes = groupes.cah,
+             mat.dist = mat.dist,
+             medoids = df_cluster[medoids,"mcYear"],
+             weights = medoids_weights,
+             df_cluster = df_cluster,
+             stat = stat)
+}
+
+cluster_graph <- function(df,
+                          medoids,
+                          year,
+                          x = "shortage_hour",
+                          y = "revenue_mean",
+                          xlab="shortage_hour",
+                          ylab = "Revenu Moyen"){
+  fig = ggplot() + 
+    geom_point(data = df,aes(x = !!sym(x), y = !!sym(y), colour = cluster)) +
+    geom_point(data = df[medoids,],aes(x = !!sym(x), y = !!sym(y)),shape ="x",color="black",size=8) +
+    
+    labs(x = xlab,
+         y = ylab,
+         title = glue::glue("{ylab} ~ {xlab} - [{year}]"),
+         subtitle = glue::glue("Affichage avec indentification des clusters\nAnnees: [{medoids %>% sort(.) %>% paste(.,collapse = '-')}]"),
+         caption = "AntaresInvest - Rte") +
+    ylim(0,max(df[,y])*1.05)+
+    
+    
+    theme(plot.title = element_text(face = 'bold'),
+          axis.title.x = element_text(face = 'bold'),
+          axis.title.y = element_text(face = 'bold'),
+          axis.line = element_line(colour = "black"),
+          legend.text = element_text(face = 'italic'),
+          legend.title = element_text(face = 'bold'),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(), 
+          plot.subtitle = element_text(face = 'italic'),
+          panel.grid.major.x = element_line(size = 0.8, color = grey_grid),
+          panel.grid.major.y = element_line(size = 0.8, color = grey_grid),
+          legend.background = element_rect(fill = grey_grid)) 
+}
+
+plot_initial_vs_new_cluster = function(df,
+                                       initial,
+                                       year,
+                                       medoids,
+                                       x = "shortage_hour", 
+                                       y = "revenue_mean",
+                                       xlab="shortage_hour",
+                                       ylab = "Revenu Moyen"){
+  df_temp = rbind(df[medoids,] %>% mutate(cluster_centers = "New cluster centers"), df[initial,] %>% mutate(cluster_centers = "Initial cluster centers"))
+  fig = ggplot(data = df_temp,aes(x = !!sym(x), y = !!sym(y),colour = cluster_centers,fill=cluster_centers)) + 
+    geom_point(shape = 23,size=8,alpha = 0.8) +
+    labs(x = xlab,
+         y = ylab,
+         title = glue::glue("{ylab} ~ {xlab} - [{year}]"),
+         subtitle = "Affichage avec indentification des clusters",
+         caption = "AntaresInvest - Rte") +
+    ylim(0,max(df[,y])*1.05)+
+    
+    theme(plot.title = element_text(face = 'bold'),
+          axis.title.x = element_text(face = 'bold'),
+          axis.title.y = element_text(face = 'bold'),
+          axis.line = element_line(colour = "black"),
+          legend.text = element_text(face = 'italic'),
+          legend.title = element_text(face = 'bold'),
+          panel.grid.minor = element_blank(),
+          panel.border = element_blank(),
+          panel.background = element_blank(), 
+          plot.subtitle = element_text(face = 'italic'),
+          panel.grid.major.x = element_line(size = 0.8, color = grey_grid),
+          panel.grid.major.y = element_line(size = 0.8, color = grey_grid),
+          legend.background = element_rect(fill = grey_grid))
+  return(fig)
+}
+
+#---------------------------------------------------- Clustering with mean values only--------------------------------------------------#
+clust_mean_only = lapply(names(df_outputs),function(year) make_clustering(df_outputs[[year]])) %>% setNames(.,names(df_outputs))
+
+names_to_set = names(clust_mean_only)
+
+fig_mean_only = clust_mean_only %>% list(l = ., cols = names(.)) %$% 
+  lapply(cols, function(y) cluster_graph(df = l[[y]]$df_cluster,
+                                         medoids = l[[y]]$medoids,
+                                         year = y)) %>% setNames(., names_to_set) ### We use the name of temp_list (our first list) to set the names of the new list
+
+fig_init_mean_only = clust_mean_only %>% list(l=. , cols = names(.)) %$% 
+  lapply(cols,function (x) plot_initial_vs_new_cluster(df = l[[x]]$df_cluster,
+                                                       initial = initial_mc_list,
+                                                       medoids = l[[x]]$medoids,
+                                                       year = x))  %>% setNames(.,names_to_set)
+```
+
+```{r, echo = FALSE,message= FALSE,results='hide',fig.keep='all'}
+fig_mean_only
+```
+
+```{r, echo = FALSE}
+fig_init_mean_only
+```
+
+## Assess clustering quality 
+
+### Revenues 
+
+```{r, echo = FALSE}
+
+## We keep only the clust_mean_only // We want to compare the revenues for all years and the one that is estimated with mc list & clustering
+annual_revenues = lapply(years,
+                         #### Compute mean revenues on a set of MC years with weigths
+                         function(y) list(all_years = list(centers = mc_list, weights = 1/mc_number), ### All MC years
+                                          mc_list = list(centers  = initial_mc_list, weights = 1/length(initial_mc_list)), ### The initial MC years, equally weighted
+                                          clustering_per_year = list(centers  = clust_mean_only[[y]]$medoids, weights = clust_mean_only[[y]]$weights), ### The years picked when doing the clustering for this specific year, weighted
+                                          clustering_all_years= list(centers  = clust_mean_only$all_years$medoids, weights = clust_mean_only$all_years$weights)) %>% ### The years picked when doing the combined clustering (across all years) for this specific year, weighted
+                           
+                           lapply(.,function(l) energy_revenues_cluster[[y]][l$centers, ] %>% multiply_by(., l$weights) %>% 
+                                    apply(.,2,sum) %>% data.frame(.) %>% t(.) %>% set_rownames(.,"mean_annual_revenue"))) %>% setNames(.,years) %>%
+  ### Build a list with for each year the mean revenue of each cluster for various MC configuration (ally years, clustering years only (weighted), initial_mc_list)
+  
+  melt(.) %>% setNames(.,c("row","cluster_name","mean_annual_revenue","mc_choice",'year')) %>% select(-c("row")) %>%  ### Aggregate the list within a dataframe to ease computation
+  
+  tidyr::pivot_wider(.,names_from = mc_choice, values_from = mean_annual_revenue) ### Pivot table => dataframe (year, cluster_name, all_years (revenues), mc_list (revenues) ....)
+
+#### Now we can compute error metrics on the revenues side => both MAE (Mean Absolute Error) & MAPE (Mean Absolute Percentage Error)
+#### We compute these metrics for each configuration (MAE/MAPE):
+####    => When we use the clustering built for the given year
+#####   => When we use the years extracted from the combined clustering
+#####   => When we use the initial mc list built by DSVD
+
+error_revenues_df = annual_revenues %>% 
+  ### Add AE (absolute error) metric
+  mutate(ae_clustering_per_year = abs(all_years - clustering_per_year),
+         ae_clustering_all_years = abs(all_years - clustering_all_years),
+         ae_mc_list = abs(all_years - mc_list)) %>%
+  ### Add APE (absolute percentage error) metric (AE/reference value)
+  mutate(ape_clustering_per_year = ae_clustering_per_year/all_years,
+         ape_clustering_all_years = ae_clustering_all_years/all_years,
+         ape_mc_list = ae_mc_list/all_years) %>%
+  ### Groupby year to get the results
+  group_by(year) %>% 
+  ### Compute Mean Absolute Error & Mean Absolute Percentage Error
+  summarise(MAE_clustering_per_year = sum(ae_clustering_per_year)/n(),
+            MAE_mc_list = sum(ae_mc_list)/n(),
+            MAE_clustering_all_years = sum(ae_clustering_all_years)/n(),
+            MAPE_clustering_per_year = sum(ape_clustering_per_year)/n(),
+            MAPE_clustering_all_years = sum(ape_clustering_all_years)/n(),
+            MAPE_mc_list = sum(ape_mc_list)/n())
+
+### We can see that : Initial mc list is not representative and a weighted clustering for each simulation is the right pick. 
+### Besides, a combine clustering makes no sense, as for a given antares study some MC years are used
+### to represent outliers for an another antares study. This would require to get the weight of each cluster for each antares study and we rather have a specific MC list rather than a list of weights
+error_revenues_df
+```
+
+### Shortages 
+
+```{r}
+annual_unsp = lapply(years, ### Loop across all years 
+                     #### Compute mean revenues on a set of MC years with weigths
+                     function(y) list(unsp_all_years = list(centers = mc_list, weights = mc_number), ### All MC years
+                                      unsp_mc_list = list(centers  = initial_mc_list, weights = 1/length(initial_mc_list)), ### The initial MC years, equally weighted
+                                      unsp_clustering_per_year = list(centers  = clust_mean_only[[y]]$medoids, weights = clust_mean_only[[y]]$weights), ### The years picked when doing the clustering for this specific year, weighted
+                                      unsp_clustering_all_years= list(centers  = clust_mean_only$all_years$medoids, weights = clust_mean_only$all_years$weights)) %>% ### The years picked when doing the combined clustering (across all years) for this specific year, weighted
+                       
+                       lapply(.,function(l) df_shortage[[y]][l$centers] %>% multiply_by(., l$weights) %>% 
+                                sum(.))) %>% setNames(.,years) %>% 
+  melt(.) %>% setNames(.,c("annual_mean_unsp","mc_choice","year")) %>% 
+  tidyr::pivot_wider(.,names_from= mc_choice, values_from = annual_mean_unsp)
+
+error_usnp_df = annual_unsp %>% 
+  ### Add AE (absolute error) metric
+  mutate(ae_clustering_per_year = abs(unsp_all_years - unsp_clustering_per_year),
+         ae_clustering_all_years = abs(unsp_all_years - unsp_clustering_all_years),
+         ae_mc_list = abs(unsp_all_years - unsp_mc_list)) %>%
+  ### Add APE (absolute percentage error) metric (AE/reference value)
+  mutate(ape_clustering_per_year = ae_clustering_per_year/unsp_all_years,
+         ape_clustering_all_years = ae_clustering_all_years/unsp_all_years,
+         ape_mc_list = ae_mc_list/unsp_all_years) %>%
+  ### Groupby year to get the results
+  group_by(year) %>% 
+  ### Compute Mean Absolute Error & Mean Absolute Percentage Error
+  summarise(MAE_clustering_per_year = sum(ae_clustering_per_year)/n(),
+            MAE_mc_list = sum(ae_mc_list)/n(),
+            MAE_clustering_all_years = sum(ae_clustering_all_years)/n(),
+            MAPE_clustering_per_year = sum(ape_clustering_per_year)/n(),
+            MAPE_clustering_all_years = sum(ape_clustering_all_years)/n(),
+            MAPE_mc_list = sum(ape_mc_list)/n())
+
+error_usnp_df 
+
+```
+
+
+## Selection Monte Carlo years
+
+Make a selection based on criteria such as shortage, revenues. Generate random set of MC years candidates and keep the set which is the closest to the average of the different criteria.
+
+
+```{r}
+
+# Selection generation  -----------------------------------------------
+nbr_random_set = 100
+nb_year_to_select = 10
+qq_limite = 0.8
+metrics = "shortage|energy|spot|revenue"
+
+# N random combinations
+random_selection = sapply(1:nbr_random_set, function(x) sample.int(mc_number, nb_year_to_select, replace = FALSE)) %>%
+  set_colnames(paste('random', 1:nbr_random_set, sep = '_'))
+
+
+# Liste exhaustive des combinaisons en prenant chaque année climatique parmi les 10 sélectionnées
+array_sel_10clim = t(expand.grid(5 + seq(0, 800, by = 200),6 + seq(0, 800, by = 200),
+                            19 + seq(0, 800, by = 200),49 + seq(0, 800, by = 200),
+                            67 + seq(0, 800, by = 200),79 + seq(0, 800, by = 200),
+                            83 + seq(0, 800, by = 200),130 + seq(0, 800, by = 200),
+                            139 + seq(0, 800, by = 200),153 + seq(0, 800, by = 200))) %>% 
+  set_colnames(paste('initial', 1:ncol(.), sep = '_')) 
+
+
+# Sample N combinations from the one obtained from initial monte carlo list
+sample = sample.int(ncol(array_sel_10clim), nbr_random_set)
+array_sel_10clim_sample = array_sel_10clim[,sample]
+
+# 1 combinaison des 10 années climatiques + aléa dispo nucléaire + thermique = 50 années
+array_sel_50clim = array(c(5 + seq(0, 800, by = 200),6 + seq(0, 800, by = 200),
+                            19 + seq(0, 800, by = 200),49 + seq(0, 800, by = 200),
+                            67 + seq(0, 800, by = 200),79 + seq(0, 800, by = 200),
+                            83 + seq(0, 800, by = 200),130 + seq(0, 800, by = 200),
+                            139 + seq(0, 800, by = 200),153 + seq(0, 800, by = 200)), 
+                          c(50, 1)) %>% set_colnames('50clim')
+
+# calcul des moyennes -----------------------------------------------------
+dt_mean = df_selection[,lapply(.SD, mean), .SDcols = -"mcYear"]
+
+dt_sel_mean1 = map_dfr(1:nbr_random_set, function(ii){
+  df_selection[random_selection[, ii], colMeans(.SD), .SDcols = -"mcYear"]
+  }) %>% mutate(id = colnames(random_selection))
+
+
+dt_sel_mean2 = map_dfr(1:nbr_random_set, function(ii){
+  df_selection[array_sel_10clim_sample[, ii], colMeans(.SD), .SDcols = -"mcYear"]
+}) %>% mutate(id = colnames(array_sel_10clim_sample))
+
+dt_sel_mean3 = df_selection[array_sel_50clim, colMeans(.SD), .SDcols = -"mcYear"] %>% as.list(.) %>%
+  as.data.table(.) %>%
+  mutate(id = colnames(array_sel_50clim))
+
+dt_sel_mean = rbind(dt_sel_mean1, dt_sel_mean2, dt_sel_mean3) %>% as.data.table(.)
+
+
+# MAE score vs. 1000 années -----------------------------------------------
+ids = dt_sel_mean$id
+dt_score = dt_sel_mean %>% {dt_mean[rep(1, nrow(.))] - .[,.SD, .SDcols = -"id"]} %>% abs(.) %>% 
+  mutate(id = ids,
+         type = sapply(row_number(), function(x) strsplit(id, split = "_")[[x]][1]))
+
+
+# Visualisation de la distribution des scores -----------------------------
+
+points = dt_score %>% filter(id == "50clim") %>% 
+                      pivot_longer(-c('id', 'type'))
+                                   
+fig = dt_score %>% pivot_longer(-c('id', 'type')) %>% 
+        ggplot() + 
+        geom_density(aes(x = value, fill = type), alpha = 0.5) +
+        geom_point(aes(x = value, y = 0), size = 2, 
+                   data = points) + facet_wrap(~ name, scales = "free")
+
+
+# Filtre sur les quantiles des scores -------------------------------------
+
+dt_score_filtered = dt_score %>%
+  filter(if_all(matches(metrics), function(x) x < quantile(x, qq_limite)))
+
+type_count = dt_score_filtered %>% count(type) %>% rename('montecarlo_count' = 'n')
+
+if (nrow(type_count) == 0){
+  print('No montecarlo set matching metrics and qq_limit constraints !')
+} else {print(type_count)}
+
+rbind(dt_score %>% 
+        summarise(if_all(-c("id", 'type'), function(x) quantile(x, 0.5))) %>% 
+        mutate(score_cat = "score_Q50", id = "score_Q50"), 
+      dt_score %>% 
+        summarise(if_all(--c("id", 'type'), function(x) quantile(x, 0.15))) %>% 
+        mutate(score_cat = "score_Q15", id = "score_Q15"),
+      dt_score[id == "50clim"] %>% mutate(score_cat = "50clim"),
+      dt_score_filtered %>% mutate(score_cat = "filtre_Q10")) %>% as.data.table(.) %>% 
+  pivot_longer(-c("id", "score_cat", 'type')) %>% 
+  ggplot() + 
+    geom_col(aes(x = id, y = value, fill = score_cat), position = "dodge") + 
+    facet_wrap(~ name, scales = "free_y", ncol = 3)
+  
+# Enregistrement des résultats --------------------------------------------
+
+results = list(dt_score = dt_score, 
+               array_sel_10clim_sample = array_sel_10clim_sample, 
+               random_selection = random_selection)
+
+```

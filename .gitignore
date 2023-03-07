@@ -1,0 +1,29 @@
+# File type
+*.Rhistory
+*.Rdata
+*.RdataTmp
+*.xlsx
+*.html
+*.pdf
+*.xls
+*.xlsb
+*.Rproj.user
+*.Renviron
+*.zip
+*.tar.gz
+*.pptx
+*.docx
+*.doc
+*.png
+*.jpg
+
+# Folder
+bibliography/
+results/
+antaresinvest/vignettes
+.vscode/
+
+#Specific file
+settings/user_params.yaml
+
+
